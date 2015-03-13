@@ -35,7 +35,7 @@
 	<configuration>
 	  <archive>
             <manifest>
-              <mainClass>com.mycompany.app.App</mainClass>
+              <mainClass>com.circleci.hello.Hello</mainClass>
             </manifest>
 	  </archive>
 	  <descriptorRefs>
