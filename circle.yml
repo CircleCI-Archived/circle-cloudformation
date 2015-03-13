@@ -1,0 +1,4 @@
+dependencies:
+  post:
+    - mvn package
+    - cp target/hello-*.jar $CIRCLE_ARTIFACTS
