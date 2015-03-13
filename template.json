@@ -1,0 +1,131 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Parameters": {
+        "AMI": {
+            "Description": "AMI ID to use for the LC",
+            "Type": "String"
+        },
+	"CircleToken": {
+	    "Description": "Circle API token for fetching artifacts",
+	    "Type": "String",
+	    "NoEcho": true
+	},
+	"ArtifactUrl": {
+	    "Description": "URL of app JAR",
+	    "Type": "String",
+	},
+        "InstanceType": {
+            "Description": "WebServer EC2 instance type",
+            "Type": "String",
+            "Default": "t1.micro"
+        },
+        "InstanceCount": {
+            "Description": "Number of instances to maintain in ASG",
+            "Type": "Number",
+            "Default": 1
+        },
+        "KeyName": {
+            "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instances",
+            "Type": "String"
+        },
+        "SecurityGroup": {
+            "Description": "Security group to use for server instances",
+            "Type": "String"
+        }
+    },
+    "Resources": {
+        "ELB": {
+            "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+            "Properties": {
+                "AvailabilityZones": {
+                    "Fn::GetAZs": ""
+                },
+                "Listeners": [
+                    {
+                        "InstanceProtocol": "HTTP",
+                        "InstancePort": "8080",
+                        "Protocol": "HTTP",
+                        "LoadBalancerPort": "80"
+                    }
+                ],
+                "HealthCheck": {
+                    "Timeout": "5",
+                    "Interval": "30",
+                    "HealthyThreshold": "2",
+                    "UnhealthyThreshold": "5",
+                    "Target": "HTTP:8080"
+                }
+            }
+        },
+        "LC": {
+            "Type": "AWS::AutoScaling::LaunchConfiguration",
+            "DependsOn": ["ELB"],
+            "Properties": {
+                "ImageId": {
+                    "Ref": "AMI"
+                },
+                "InstanceType": {
+                    "Ref": "InstanceType"
+                },
+                "SecurityGroups": [
+                    {
+                        "Ref": "SecurityGroup"
+                    }
+                ],
+                "KeyName": {
+                    "Ref": "KeyName"
+                },
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": ["", [
+                            "#!/bin/bash\n",
+			    "echo Hey there!"
+                        ]]
+                    }
+                }
+            }
+        },
+        "ASG": {
+            "Type": "AWS::AutoScaling::AutoScalingGroup",
+            "Properties": {
+                "LoadBalancerNames": [
+                    {
+                        "Ref": "ELB"
+                    }
+                ],
+                "LaunchConfigurationName": {
+                    "Ref": "LC"
+                },
+                "HealthCheckGracePeriod": "1200",
+                "HealthCheckType": "ELB",
+                "AvailabilityZones": {
+                    "Fn::GetAZs": ""
+                },
+                "MinSize": {
+                    "Ref": "InstanceCount"
+                },
+                "MaxSize": {
+                    "Ref": "InstanceCount"
+                },
+                "DesiredCapacity": {
+                    "Ref": "InstanceCount"
+                }
+            },
+            "UpdatePolicy": {
+                "AutoScalingRollingUpdate": {
+                    "MinInstancesInService": "0",
+                    "MaxBatchSize": "1",
+                    "PauseTime": "PT5M"
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "SiteEndpoint": {
+            "Value": {
+                "Fn::GetAtt": ["ELB", "DNSName"]
+            },
+            "Description": "LB endpoint"
+        }
+    }
+}
