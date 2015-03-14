@@ -12,12 +12,12 @@
 	},
 	"ArtifactUrl": {
 	    "Description": "URL of app JAR",
-	    "Type": "String",
+	    "Type": "String"
 	},
         "InstanceType": {
             "Description": "WebServer EC2 instance type",
             "Type": "String",
-            "Default": "t1.micro"
+            "Default": "t2.micro"
         },
         "InstanceCount": {
             "Description": "Number of instances to maintain in ASG",
@@ -53,13 +53,12 @@
                     "Interval": "30",
                     "HealthyThreshold": "2",
                     "UnhealthyThreshold": "5",
-                    "Target": "HTTP:8080"
+                    "Target": "HTTP:8080/"
                 }
             }
         },
         "LC": {
             "Type": "AWS::AutoScaling::LaunchConfiguration",
-            "DependsOn": ["ELB"],
             "Properties": {
                 "ImageId": {
                     "Ref": "AMI"
@@ -79,7 +78,10 @@
                     "Fn::Base64": {
                         "Fn::Join": ["", [
                             "#!/bin/bash\n",
-			    "echo Hey there!"
+			    "apt-get update; apt-get install -y openjdk-7-jre-headless\n",
+			    "curl -o /opt/app.jar ", { "Ref": "ArtifactUrl"},
+			    "?circle-token=", { "Ref": "CircleToken" }, "\n",
+			    "java -jar /opt/app.jar &"
                         ]]
                     }
                 }
@@ -118,14 +120,6 @@
                     "PauseTime": "PT5M"
                 }
             }
-        }
-    },
-    "Outputs": {
-        "SiteEndpoint": {
-            "Value": {
-                "Fn::GetAtt": ["ELB", "DNSName"]
-            },
-            "Description": "LB endpoint"
         }
     }
 }
