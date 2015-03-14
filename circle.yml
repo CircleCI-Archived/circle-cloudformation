@@ -1,4 +1,14 @@
+machine:
+  python:
+    version: 2.7.9
 dependencies:
   post:
-    - mvn package
+    - pip install awscli
+test:
+  post:
     - cp target/hello-*.jar $CIRCLE_ARTIFACTS
+deployment:
+  prod:
+    branch: master
+    commands:
+      - ./deploy.sh
