@@ -22,7 +22,7 @@
         "InstanceCount": {
             "Description": "Number of instances to maintain in ASG",
             "Type": "Number",
-            "Default": 1
+            "Default": 2
         },
         "KeyName": {
             "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instances",
@@ -115,7 +115,7 @@
             },
             "UpdatePolicy": {
                 "AutoScalingRollingUpdate": {
-                    "MinInstancesInService": "0",
+                    "MinInstancesInService": "1",
                     "MaxBatchSize": "1",
                     "PauseTime": "PT5M"
                 }
