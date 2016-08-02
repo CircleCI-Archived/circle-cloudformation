@@ -107,7 +107,7 @@
     "CreateElasticLoadBalancer": {
       "Type": "String",
       "Description": "Optional : When set to true, creates a ELB for ECS Service",
-      "Default": "false"
+      "Default": "true"
     },
     "VpcAvailabilityZones": {
       "Type": "CommaDelimitedList",
