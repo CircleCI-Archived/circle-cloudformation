@@ -8,5 +8,5 @@ ARTIFACT_URL=$ARTIFACT_ROOT/$CIRCLE_BUILD_NUM/artifacts/0$ARTIFACT_FILE
 
 aws cloudformation create-stack \
           --stack-name circle-cloudformation-$CIRCLE_BUILD_NUM \
-          --template-body template.json \
+          --template-body file://template.json \
           
