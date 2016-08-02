@@ -8,7 +8,7 @@ ARTIFACT_URL=$ARTIFACT_ROOT/$CIRCLE_BUILD_NUM/artifacts/0$ARTIFACT_FILE
 
 aws cloudformation create-stack \
           --stack-name circle-cloudformation-$CIRCLE_BUILD_NUM \
-          --use-previous-template \
+          --template-body template.json \
           --parameters \
             ParameterKey=ArtifactUrl,ParameterValue=$ARTIFACT_URL \
             ParameterKey=AMI,UsePreviousValue=true \
