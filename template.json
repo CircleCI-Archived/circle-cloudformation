@@ -1,125 +1,1492 @@
 {
-    "AWSTemplateFormatVersion": "2010-09-09",
-    "Parameters": {
-        "AMI": {
-            "Description": "AMI ID to use for the LC",
-            "Type": "String"
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "AWS CloudFormation template to create a new VPC or use an existing VPC for ECS deployment",
+  "Parameters": {
+    "EcsInstanceType": {
+      "Type": "String",
+      "Description": "ECS EC2 instance type",
+      "Default": "t2.micro",
+      "AllowedValues": [
+        "t2.micro",
+        "t2.small",
+        "t2.medium",
+        "t2.large",
+        "m4.large",
+        "m4.xlarge",
+        "m4.2xlarge",
+        "m4.4xlarge",
+        "m4.10xlarge",
+        "m3.medium",
+        "m3.large",
+        "m3.xlarge",
+        "m3.2xlarge",
+        "c4.large",
+        "c4.xlarge",
+        "c4.2xlarge",
+        "c4.4xlarge",
+        "c4.8xlarge",
+        "c3.large",
+        "c3.xlarge",
+        "c3.2xlarge",
+        "c3.4xlarge",
+        "c3.8xlarge",
+        "r3.large",
+        "r3.xlarge",
+        "r3.2xlarge",
+        "r3.4xlarge",
+        "r3.8xlarge",
+        "i2.xlarge",
+        "i2.2xlarge",
+        "i2.4xlarge",
+        "i2.8xlarge"
+      ],
+      "ConstraintDescription": "must be a valid EC2 instance type."
+    },
+    "KeyName": {
+      "Type": "String",
+      "Description": "Optional - Name of an existing EC2 KeyPair to enable SSH access to the ECS instances",
+      "Default": ""
+    },
+    "VpcId": {
+      "Type": "String",
+      "Description": "Optional - VPC Id of existing VPC. Leave blank to have a new VPC created",
+      "Default": "",
+      "AllowedPattern": "^(?:vpc-[0-9a-f]{8}|)$",
+      "ConstraintDescription": "VPC Id must begin with 'vpc-' or leave blank to have a new VPC created"
+    },
+    "SubnetIds": {
+      "Type": "CommaDelimitedList",
+      "Description": "Optional - Comma separated list of existing VPC Subnet Ids where ECS instances will run",
+      "Default": ""
+    },
+    "AsgMaxSize": {
+      "Type": "Number",
+      "Description": "Maximum size and initial Desired Capacity of ECS Auto Scaling Group",
+      "Default": "1"
+    },
+    "IamRoleInstanceProfile": {
+      "Type": "String",
+      "Description": "Name or the Amazon Resource Name (ARN) of the instance profile associated with the IAM role for the instance",
+      "Default": "ecsInstanceRole"
+    },
+    "IamEcsServiceRole": {
+      "Type": "String",
+      "Description": "Name or the Amazon Resource Name (ARN) of the ECS service role",
+      "Default": "ecsServiceRole"
+    },
+    "EcsPort": {
+      "Type": "String",
+      "Description": "Optional - Security Group port to open on ECS instances - defaults to port 80",
+      "Default": "80"
+    },
+    "ElbPort": {
+      "Type": "String",
+      "Description": "Optional - Security Group port to open on ELB - port 80 will be open by default",
+      "Default": "80"
+    },
+    "ElbProtocol": {
+      "Type": "String",
+      "Description": "Optional - ELB Protocol - defaults to HTTP",
+      "Default": "HTTP"
+    },
+    "ElbHealthCheckTarget": {
+      "Type": "String",
+      "Description": "Optional - Health Check Target for ELB - defaults to HTTP:80/",
+      "Default": "HTTP:80/"
+    },
+    "SourceCidr": {
+      "Type": "String",
+      "Description": "Optional - CIDR/IP range for EcsPort and ElbPort - defaults to 0.0.0.0/0",
+      "Default": "0.0.0.0/0"
+    },
+    "EcsEndpoint": {
+      "Type": "String",
+      "Description": "Optional : ECS Endpoint for the ECS Agent to connect to",
+      "Default": ""
+    },
+    "CreateElasticLoadBalancer": {
+      "Type": "String",
+      "Description": "Optional : When set to true, creates a ELB for ECS Service",
+      "Default": "false"
+    },
+    "VpcAvailabilityZones": {
+      "Type": "CommaDelimitedList",
+      "Description": "Optional : Comma-delimited list of two VPC availability zones in which to create subnets",
+      "Default": ""
+    }
+  },
+  "Mappings": {
+    "VpcCidrs": {
+      "eu-central-1": {
+        "vpc": "10.0.0.0/16",
+        "pubsubnet1": "10.0.0.0/24",
+        "pubsubnet2": "10.0.1.0/24"
+      },
+      "sa-east-1": {
+        "vpc": "10.0.0.0/16",
+        "pubsubnet1": "10.0.0.0/24",
+        "pubsubnet2": "10.0.1.0/24"
+      },
+      "ap-northeast-1": {
+        "vpc": "10.0.0.0/16",
+        "pubsubnet1": "10.0.0.0/24",
+        "pubsubnet2": "10.0.1.0/24"
+      },
+      "eu-west-1": {
+        "vpc": "10.0.0.0/16",
+        "pubsubnet1": "10.0.0.0/24",
+        "pubsubnet2": "10.0.1.0/24"
+      },
+      "us-east-1": {
+        "vpc": "10.0.0.0/16",
+        "pubsubnet1": "10.0.0.0/24",
+        "pubsubnet2": "10.0.1.0/24"
+      },
+      "us-west-1": {
+        "vpc": "10.0.0.0/16",
+        "pubsubnet1": "10.0.0.0/24",
+        "pubsubnet2": "10.0.1.0/24"
+      },
+      "us-west-2": {
+        "vpc": "10.0.0.0/16",
+        "pubsubnet1": "10.0.0.0/24",
+        "pubsubnet2": "10.0.1.0/24"
+      },
+      "ap-southeast-2": {
+        "vpc": "10.0.0.0/16",
+        "pubsubnet1": "10.0.0.0/24",
+        "pubsubnet2": "10.0.1.0/24"
+      },
+      "ap-southeast-1": {
+        "vpc": "10.0.0.0/16",
+        "pubsubnet1": "10.0.0.0/24",
+        "pubsubnet2": "10.0.1.0/24"
+      }
+    },
+    "EcsAmiIds": {
+      "us-east-1": {
+        "ecsAmiId": "ami-cb2305a1"
+      },
+      "us-west-1": {
+        "ecsAmiId": "ami-46cda526"
+      },
+      "us-west-2": {
+        "ecsAmiId": "ami-ec75908c"
+      },
+      "eu-west-1": {
+        "ecsAmiId": "ami-13f84d60"
+      },
+      "eu-central-1": {
+        "ecsAmiId": "ami-c3253caf"
+      },
+      "ap-northeast-1": {
+        "ecsAmiId": "ami-e9724c87"
+      },
+      "ap-southeast-1": {
+        "ecsAmiId": "ami-5f31fd3c"
+      },
+      "ap-southeast-2": {
+        "ecsAmiId": "ami-83af8ae0"
+      }
+    }
+  },
+  "Conditions": {
+    "CreateVpcResources": {
+      "Fn::Equals": [
+        {
+          "Ref": "VpcId"
         },
-	"CircleToken": {
-	    "Description": "Circle API token for fetching artifacts",
-	    "Type": "String",
-	    "NoEcho": true
-	},
-	"ArtifactUrl": {
-	    "Description": "URL of app JAR",
-	    "Type": "String"
-	},
+        ""
+      ]
+    },
+    "ExistingVpcResources": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "VpcId"
+            },
+            ""
+          ]
+        }
+      ]
+    },
+    "SetEndpointToECSAgent": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "EcsEndpoint"
+            },
+            ""
+          ]
+        }
+      ]
+    },
+    "CreateELBForExistingVpc": {
+      "Fn::And": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "CreateElasticLoadBalancer"
+            },
+            "true"
+          ]
+        },
+        {
+          "Condition": "ExistingVpcResources"
+        }
+      ]
+    },
+    "CreateELBForNewVpc": {
+      "Fn::And": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "CreateElasticLoadBalancer"
+            },
+            "true"
+          ]
+        },
+        {
+          "Condition": "CreateVpcResources"
+        }
+      ]
+    },
+    "CreateELB": {
+      "Fn::Or": [
+        {
+          "Condition": "CreateELBForExistingVpc"
+        },
+        {
+          "Condition": "CreateELBForNewVpc"
+        }
+      ]
+    },
+    "CreateEC2LCWithKeyPair": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "KeyName"
+            },
+            ""
+          ]
+        }
+      ]
+    },
+    "CreateEC2LCWithoutKeyPair": {
+      "Fn::Equals": [
+        {
+          "Ref": "KeyName"
+        },
+        ""
+      ]
+    },
+    "UseSpecifiedVpcAvailabilityZones": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Fn::Join": [
+                "",
+                {
+                  "Ref": "VpcAvailabilityZones"
+                }
+              ]
+            },
+            ""
+          ]
+        }
+      ]
+    }
+  },
+  "Resources": {
+    "EcsCluster": {
+      "Type": "AWS::ECS::Cluster",
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "b39154ff-ab7f-4684-9f67-cba0235aa999"
+        }
+      }
+    },
+    "HelloworldTaskDefinition": {
+      "Type": "AWS::ECS::TaskDefinition",
+      "Properties": {
+        "ContainerDefinitions": [
+          {
+            "Name": "helloworld",
+            "Cpu": "10",
+            "Essential": "true",
+            "Image": "httpd:2.4",
+            "Memory": "300",
+            "MountPoints": [],
+            "PortMappings": [
+              {
+                "HostPort": 80,
+                "ContainerPort": 80
+              }
+            ],
+            "EntryPoint": [
+              "sh",
+              "-c"
+            ],
+            "Command": [
+              "/bin/sh -c \"echo '{ \\\"hello\\\" : \\\"world\\\" }' > /usr/local/apache2/htdocs/index.html && httpd-foreground\""
+            ]
+          }
+        ]
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "ffac7c98-a64c-491a-ac4a-d5bed7e943aa"
+        }
+      }
+    },
+    "Vpc": {
+      "Condition": "CreateVpcResources",
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            "VpcCidrs",
+            {
+              "Ref": "AWS::Region"
+            },
+            "vpc"
+          ]
+        },
+        "EnableDnsSupport": "true",
+        "EnableDnsHostnames": "true"
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "6a87c767-ea90-47ac-acd0-da9083b0c55c"
+        }
+      }
+    },
+    "PubSubnetAz1": {
+      "Condition": "CreateVpcResources",
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            "VpcCidrs",
+            {
+              "Ref": "AWS::Region"
+            },
+            "pubsubnet1"
+          ]
+        },
+        "AvailabilityZone": {
+          "Fn::If": [
+            "UseSpecifiedVpcAvailabilityZones",
+            {
+              "Fn::Select": [
+                "0",
+                {
+                  "Ref": "VpcAvailabilityZones"
+                }
+              ]
+            },
+            {
+              "Fn::Select": [
+                "0",
+                {
+                  "Fn::GetAZs": {
+                    "Ref": "AWS::Region"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "6769724d-3f7a-49f9-a120-55767e29a0aa"
+        }
+      }
+    },
+    "PubSubnetAz2": {
+      "Condition": "CreateVpcResources",
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            "VpcCidrs",
+            {
+              "Ref": "AWS::Region"
+            },
+            "pubsubnet2"
+          ]
+        },
+        "AvailabilityZone": {
+          "Fn::If": [
+            "UseSpecifiedVpcAvailabilityZones",
+            {
+              "Fn::Select": [
+                "1",
+                {
+                  "Ref": "VpcAvailabilityZones"
+                }
+              ]
+            },
+            {
+              "Fn::Select": [
+                "1",
+                {
+                  "Fn::GetAZs": {
+                    "Ref": "AWS::Region"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "147a1a25-7ebe-4bcc-80b6-5b6f3bfffeae"
+        }
+      }
+    },
+    "InternetGateway": {
+      "Condition": "CreateVpcResources",
+      "Type": "AWS::EC2::InternetGateway",
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "d290153b-0fb5-4b07-8bcb-4fead4712f72"
+        }
+      }
+    },
+    "AttachGateway": {
+      "Condition": "CreateVpcResources",
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "InternetGatewayId": {
+          "Ref": "InternetGateway"
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "9494dfd2-41db-41ac-8aa3-63df686d5c46"
+        }
+      }
+    },
+    "RouteViaIgw": {
+      "Condition": "CreateVpcResources",
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "7105185e-eb07-406b-8345-3c4914bbba2b"
+        }
+      }
+    },
+    "PublicRouteViaIgw": {
+      "Condition": "CreateVpcResources",
+      "Type": "AWS::EC2::Route",
+      "DependsOn": "AttachGateway",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "RouteViaIgw"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "InternetGateway"
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "f15cdd49-e529-4494-bd95-8a931dd35bc3"
+        }
+      }
+    },
+    "PubSubnet1RouteTableAssociation": {
+      "Condition": "CreateVpcResources",
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "PubSubnetAz1"
+        },
+        "RouteTableId": {
+          "Ref": "RouteViaIgw"
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "3e1988b5-4da6-4d65-b4ba-9bab6911bc5a"
+        }
+      }
+    },
+    "PubSubnet2RouteTableAssociation": {
+      "Condition": "CreateVpcResources",
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "PubSubnetAz2"
+        },
+        "RouteTableId": {
+          "Ref": "RouteViaIgw"
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "1c8f4a0e-1bcd-491f-abcd-2c174308ec03"
+        }
+      }
+    },
+    "ElbSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "ELB Allowed Ports",
+        "VpcId": {
+          "Fn::If": [
+            "CreateVpcResources",
+            {
+              "Ref": "Vpc"
+            },
+            {
+              "Ref": "VpcId"
+            }
+          ]
+        },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": {
+              "Ref": "ElbPort"
+            },
+            "ToPort": {
+              "Ref": "ElbPort"
+            },
+            "CidrIp": {
+              "Ref": "SourceCidr"
+            }
+          }
+        ]
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "024115eb-9c64-4780-af37-aed342cf0743"
+        }
+      }
+    },
+    "EcsSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "ECS Allowed Ports",
+        "VpcId": {
+          "Fn::If": [
+            "CreateVpcResources",
+            {
+              "Ref": "Vpc"
+            },
+            {
+              "Ref": "VpcId"
+            }
+          ]
+        },
+        "SecurityGroupIngress": {
+          "Fn::If": [
+            "CreateELB",
+            [
+              {
+                "IpProtocol": "tcp",
+                "FromPort": {
+                  "Ref": "EcsPort"
+                },
+                "ToPort": {
+                  "Ref": "EcsPort"
+                },
+                "CidrIp": {
+                  "Ref": "SourceCidr"
+                }
+              },
+              {
+                "IpProtocol": "tcp",
+                "FromPort": "1",
+                "ToPort": "65535",
+                "SourceSecurityGroupId": {
+                  "Ref": "ElbSecurityGroup"
+                }
+              }
+            ],
+            [
+              {
+                "IpProtocol": "tcp",
+                "FromPort": {
+                  "Ref": "EcsPort"
+                },
+                "ToPort": {
+                  "Ref": "EcsPort"
+                },
+                "CidrIp": {
+                  "Ref": "SourceCidr"
+                }
+              }
+            ]
+          ]
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "3bd286f4-8b67-4f34-b9ff-df8f3fd3dd05"
+        }
+      }
+    },
+    "EcsElasticLoadBalancer": {
+      "Condition": "CreateELBForNewVpc",
+      "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+      "Properties": {
+        "SecurityGroups": [
+          {
+            "Ref": "ElbSecurityGroup"
+          }
+        ],
+        "Subnets": [
+          {
+            "Ref": "PubSubnetAz1"
+          },
+          {
+            "Ref": "PubSubnetAz2"
+          }
+        ],
+        "CrossZone": "true",
+        "Listeners": [
+          {
+            "LoadBalancerPort": {
+              "Ref": "ElbPort"
+            },
+            "InstancePort": {
+              "Ref": "EcsPort"
+            },
+            "Protocol": {
+              "Ref": "ElbProtocol"
+            }
+          }
+        ],
+        "HealthCheck": {
+          "Target": {
+            "Ref": "ElbHealthCheckTarget"
+          },
+          "HealthyThreshold": "2",
+          "UnhealthyThreshold": "10",
+          "Interval": "30",
+          "Timeout": "5"
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "5f1e3396-9f26-471e-b9ea-7496a27307d2"
+        }
+      }
+    },
+    "EcsElasticLoadBalancerExistingVpc": {
+      "Condition": "CreateELBForExistingVpc",
+      "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+      "Properties": {
+        "SecurityGroups": [
+          {
+            "Ref": "ElbSecurityGroup"
+          }
+        ],
+        "Subnets": {
+          "Ref": "SubnetIds"
+        },
+        "CrossZone": "true",
+        "Listeners": [
+          {
+            "LoadBalancerPort": {
+              "Ref": "ElbPort"
+            },
+            "InstancePort": {
+              "Ref": "EcsPort"
+            },
+            "Protocol": {
+              "Ref": "ElbProtocol"
+            }
+          }
+        ],
+        "HealthCheck": {
+          "Target": {
+            "Ref": "ElbHealthCheckTarget"
+          },
+          "HealthyThreshold": "2",
+          "UnhealthyThreshold": "10",
+          "Interval": "30",
+          "Timeout": "5"
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "9b58b0e4-927a-4e56-947f-a1f4213d6df4"
+        }
+      }
+    },
+    "ContainerInstances": {
+      "Condition": "CreateEC2LCWithKeyPair",
+      "Type": "AWS::AutoScaling::LaunchConfiguration",
+      "Metadata": {
+        "AWS::CloudFormation::Init": {
+          "config": {
+            "commands": {
+              "01_add_instance_to_cluster": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "#!/bin/bash\n",
+                      "echo ECS_CLUSTER=",
+                      {
+                        "Ref": "EcsCluster"
+                      },
+                      " >> /etc/ecs/ecs.config"
+                    ]
+                  ]
+                }
+              }
+            },
+            "files": {
+              "/etc/cfn/cfn-hup.conf": {
+                "content": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "[main]\n",
+                      "stack=",
+                      {
+                        "Ref": "AWS::StackId"
+                      },
+                      "\n",
+                      "region=",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "\n"
+                    ]
+                  ]
+                },
+                "mode": "000400",
+                "owner": "root",
+                "group": "root"
+              },
+              "/etc/cfn/hooks.d/cfn-auto-reloader.conf": {
+                "content": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "[cfn-auto-reloader-hook]\n",
+                      "triggers=post.update\n",
+                      "path=Resources.ContainerInstances.Metadata.AWS::CloudFormation::Init\n",
+                      "action=/opt/aws/bin/cfn-init -v ",
+                      "         --stack ",
+                      {
+                        "Ref": "AWS::StackName"
+                      },
+                      "         --resource ContainerInstances ",
+                      "         --region ",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "\n",
+                      "runas=root\n"
+                    ]
+                  ]
+                }
+              }
+            },
+            "services": {
+              "sysvinit": {
+                "cfn-hup": {
+                  "enabled": "true",
+                  "ensureRunning": "true",
+                  "files": [
+                    "/etc/cfn/cfn-hup.conf",
+                    "/etc/cfn/hooks.d/cfn-auto-reloader.conf"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "AWS::CloudFormation::Designer": {
+          "id": "6136e38d-43a4-439b-a544-aca39a75896c"
+        }
+      },
+      "Properties": {
+        "ImageId": {
+          "Fn::FindInMap": [
+            "EcsAmiIds",
+            {
+              "Ref": "AWS::Region"
+            },
+            "ecsAmiId"
+          ]
+        },
         "InstanceType": {
-            "Description": "WebServer EC2 instance type",
-            "Type": "String",
-            "Default": "t2.micro"
+          "Ref": "EcsInstanceType"
         },
-        "InstanceCount": {
-            "Description": "Number of instances to maintain in ASG",
-            "Type": "Number",
-            "Default": 2
+        "IamInstanceProfile": {
+          "Ref": "IamRoleInstanceProfile"
         },
         "KeyName": {
-            "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instances",
-            "Type": "String"
+          "Ref": "KeyName"
         },
-        "SecurityGroup": {
-            "Description": "Security group to use for server instances",
-            "Type": "String"
+        "SecurityGroups": [
+          {
+            "Ref": "EcsSecurityGroup"
+          }
+        ],
+        "AssociatePublicIpAddress": true,
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash -xe\n",
+                "yum install -y aws-cfn-bootstrap\n",
+                "/opt/aws/bin/cfn-init -v ",
+                "         --stack ",
+                {
+                  "Ref": "AWS::StackName"
+                },
+                "         --resource ContainerInstances ",
+                "         --region ",
+                {
+                  "Ref": "AWS::Region"
+                },
+                "\n",
+                "/opt/aws/bin/cfn-signal -e $? ",
+                "         --stack ",
+                {
+                  "Ref": "AWS::StackName"
+                },
+                "         --resource EcsInstanceAsg ",
+                "         --region ",
+                {
+                  "Ref": "AWS::Region"
+                },
+                "\n"
+              ]
+            ]
+          }
         }
+      }
     },
-    "Resources": {
-        "ELB": {
-            "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
-            "Properties": {
-                "AvailabilityZones": {
-                    "Fn::GetAZs": ""
-                },
-                "Listeners": [
-                    {
-                        "InstanceProtocol": "HTTP",
-                        "InstancePort": "8080",
-                        "Protocol": "HTTP",
-                        "LoadBalancerPort": "80"
-                    }
-                ],
-                "HealthCheck": {
-                    "Timeout": "5",
-                    "Interval": "30",
-                    "HealthyThreshold": "2",
-                    "UnhealthyThreshold": "5",
-                    "Target": "HTTP:8080/"
+    "ContainerInstancesWithoutKeyPair": {
+      "Condition": "CreateEC2LCWithoutKeyPair",
+      "Type": "AWS::AutoScaling::LaunchConfiguration",
+      "Metadata": {
+        "AWS::CloudFormation::Init": {
+          "config": {
+            "commands": {
+              "01_add_instance_to_cluster": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "#!/bin/bash\n",
+                      "echo ECS_CLUSTER=",
+                      {
+                        "Ref": "EcsCluster"
+                      },
+                      " >> /etc/ecs/ecs.config"
+                    ]
+                  ]
                 }
-            }
-        },
-        "LC": {
-            "Type": "AWS::AutoScaling::LaunchConfiguration",
-            "Properties": {
-                "ImageId": {
-                    "Ref": "AMI"
-                },
-                "InstanceType": {
-                    "Ref": "InstanceType"
-                },
-                "SecurityGroups": [
-                    {
-                        "Ref": "SecurityGroup"
-                    }
-                ],
-                "KeyName": {
-                    "Ref": "KeyName"
-                },
-                "UserData": {
-                    "Fn::Base64": {
-                        "Fn::Join": ["", [
-                            "#!/bin/bash\n",
-			    "apt-get update; apt-get install -y openjdk-7-jre-headless\n",
-			    "curl -o /opt/app.jar ", { "Ref": "ArtifactUrl"},
-			    "?circle-token=", { "Ref": "CircleToken" }, "\n",
-			    "java -jar /opt/app.jar &"
-                        ]]
-                    }
-                }
-            }
-        },
-        "ASG": {
-            "Type": "AWS::AutoScaling::AutoScalingGroup",
-            "Properties": {
-                "LoadBalancerNames": [
-                    {
-                        "Ref": "ELB"
-                    }
-                ],
-                "LaunchConfigurationName": {
-                    "Ref": "LC"
-                },
-                "HealthCheckGracePeriod": "1200",
-                "HealthCheckType": "ELB",
-                "AvailabilityZones": {
-                    "Fn::GetAZs": ""
-                },
-                "MinSize": {
-                    "Ref": "InstanceCount"
-                },
-                "MaxSize": {
-                    "Ref": "InstanceCount"
-                },
-                "DesiredCapacity": {
-                    "Ref": "InstanceCount"
-                }
+              }
             },
-            "UpdatePolicy": {
-                "AutoScalingRollingUpdate": {
-                    "MinInstancesInService": "1",
-                    "MaxBatchSize": "1",
-                    "PauseTime": "PT5M"
+            "files": {
+              "/etc/cfn/cfn-hup.conf": {
+                "content": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "[main]\n",
+                      "stack=",
+                      {
+                        "Ref": "AWS::StackId"
+                      },
+                      "\n",
+                      "region=",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "\n"
+                    ]
+                  ]
+                },
+                "mode": "000400",
+                "owner": "root",
+                "group": "root"
+              },
+              "/etc/cfn/hooks.d/cfn-auto-reloader.conf": {
+                "content": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "[cfn-auto-reloader-hook]\n",
+                      "triggers=post.update\n",
+                      "path=Resources.ContainerInstancesWithoutKeyPair.Metadata.AWS::CloudFormation::Init\n",
+                      "action=/opt/aws/bin/cfn-init -v ",
+                      "         --stack ",
+                      {
+                        "Ref": "AWS::StackName"
+                      },
+                      "         --resource ContainerInstancesWithoutKeyPair ",
+                      "         --region ",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "\n",
+                      "runas=root\n"
+                    ]
+                  ]
                 }
+              }
+            },
+            "services": {
+              "sysvinit": {
+                "cfn-hup": {
+                  "enabled": "true",
+                  "ensureRunning": "true",
+                  "files": [
+                    "/etc/cfn/cfn-hup.conf",
+                    "/etc/cfn/hooks.d/cfn-auto-reloader.conf"
+                  ]
+                }
+              }
             }
+          }
+        },
+        "AWS::CloudFormation::Designer": {
+          "id": "aa0d5369-4fd6-4da4-bcc0-b59b0b49ce0b"
         }
+      },
+      "Properties": {
+        "ImageId": {
+          "Fn::FindInMap": [
+            "EcsAmiIds",
+            {
+              "Ref": "AWS::Region"
+            },
+            "ecsAmiId"
+          ]
+        },
+        "InstanceType": {
+          "Ref": "EcsInstanceType"
+        },
+        "IamInstanceProfile": {
+          "Ref": "IamRoleInstanceProfile"
+        },
+        "SecurityGroups": [
+          {
+            "Ref": "EcsSecurityGroup"
+          }
+        ],
+        "AssociatePublicIpAddress": true,
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash -xe\n",
+                "yum install -y aws-cfn-bootstrap\n",
+                "/opt/aws/bin/cfn-init -v ",
+                "         --stack ",
+                {
+                  "Ref": "AWS::StackName"
+                },
+                "         --resource ContainerInstancesWithoutKeyPair ",
+                "         --region ",
+                {
+                  "Ref": "AWS::Region"
+                },
+                "\n",
+                "/opt/aws/bin/cfn-signal -e $? ",
+                "         --stack ",
+                {
+                  "Ref": "AWS::StackName"
+                },
+                "         --resource EcsInstanceAsg ",
+                "         --region ",
+                {
+                  "Ref": "AWS::Region"
+                },
+                "\n"
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "EcsInstanceAsg": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "Properties": {
+        "VPCZoneIdentifier": {
+          "Fn::If": [
+            "CreateVpcResources",
+            [
+              {
+                "Fn::Join": [
+                  ",",
+                  [
+                    {
+                      "Ref": "PubSubnetAz1"
+                    },
+                    {
+                      "Ref": "PubSubnetAz2"
+                    }
+                  ]
+                ]
+              }
+            ],
+            {
+              "Ref": "SubnetIds"
+            }
+          ]
+        },
+        "LaunchConfigurationName": {
+          "Fn::If": [
+            "CreateEC2LCWithKeyPair",
+            {
+              "Ref": "ContainerInstances"
+            },
+            {
+              "Ref": "ContainerInstancesWithoutKeyPair"
+            }
+          ]
+        },
+        "MinSize": "1",
+        "MaxSize": {
+          "Ref": "AsgMaxSize"
+        },
+        "DesiredCapacity": {
+          "Ref": "AsgMaxSize"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "",
+                [
+                  "ECS Instance - ",
+                  {
+                    "Ref": "AWS::StackName"
+                  }
+                ]
+              ]
+            },
+            "PropagateAtLaunch": "true"
+          }
+        ]
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "4e94bf8b-7728-4281-9d6c-9bbcf7f72d72"
+        }
+      }
+    },
+    "HelloworldService": {
+      "Type": "AWS::ECS::Service",
+      "DependsOn": [
+        "EcsInstanceAsg"
+      ],
+      "Properties": {
+        "Cluster": {
+          "Ref": "EcsCluster"
+        },
+        "DesiredCount": "2",
+        "LoadBalancers": [
+          {
+            "ContainerName": "helloworld",
+            "ContainerPort": "80",
+            "LoadBalancerName": {
+              "Ref": "EcsElasticLoadBalancer"
+            }
+          }
+        ],
+        "Role": {
+          "Ref": "IamEcsServiceRole"
+        },
+        "TaskDefinition": {
+          "Ref": "HelloworldTaskDefinition"
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "ac3cd324-3526-483d-a007-094e0032f2b1"
+        }
+      }
+    },
+    "LLG4GKT8": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "RetentionInDays": 7
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "8eabed04-3c3b-4865-b72c-b442de659187"
+        }
+      }
     }
+  },
+  "Outputs": {
+    "EcsInstanceAsgName": {
+      "Description": "Auto Scaling Group Name for ECS Instances",
+      "Value": {
+        "Ref": "EcsInstanceAsg"
+      }
+    },
+    "EcsElbName": {
+      "Description": "Load Balancer for ECS Service",
+      "Value": {
+        "Fn::If": [
+          "CreateELB",
+          {
+            "Fn::If": [
+              "CreateELBForNewVpc",
+              {
+                "Ref": "EcsElasticLoadBalancer"
+              },
+              {
+                "Ref": "EcsElasticLoadBalancerExistingVpc"
+              }
+            ]
+          },
+          ""
+        ]
+      }
+    },
+    "EcsElbDnsName": {
+      "Description": "DNS Name of the Load Balancer for ECS Service",
+      "Value": {
+        "Fn::If": [
+          "CreateELB",
+          {
+            "Fn::If": [
+              "CreateELBForNewVpc",
+              {
+                "Fn::GetAtt": [
+                  "EcsElasticLoadBalancer",
+                  "DNSName"
+                ]
+              },
+              {
+                "Fn::GetAtt": [
+                  "EcsElasticLoadBalancerExistingVpc",
+                  "DNSName"
+                ]
+              }
+            ]
+          },
+          ""
+        ]
+      }
+    }
+  },
+  "Metadata": {
+    "AWS::CloudFormation::Designer": {
+      "d290153b-0fb5-4b07-8bcb-4fead4712f72": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 60,
+          "y": 660
+        },
+        "z": 1,
+        "embeds": []
+      },
+      "6a87c767-ea90-47ac-acd0-da9083b0c55c": {
+        "size": {
+          "width": 600,
+          "height": 510
+        },
+        "position": {
+          "x": 60,
+          "y": 90
+        },
+        "z": 1,
+        "embeds": [
+          "024115eb-9c64-4780-af37-aed342cf0743",
+          "3bd286f4-8b67-4f34-b9ff-df8f3fd3dd05",
+          "7105185e-eb07-406b-8345-3c4914bbba2b",
+          "147a1a25-7ebe-4bcc-80b6-5b6f3bfffeae",
+          "6769724d-3f7a-49f9-a120-55767e29a0aa"
+        ]
+      },
+      "024115eb-9c64-4780-af37-aed342cf0743": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 90,
+          "y": 450
+        },
+        "z": 2,
+        "parent": "6a87c767-ea90-47ac-acd0-da9083b0c55c",
+        "embeds": []
+      },
+      "9b58b0e4-927a-4e56-947f-a1f4213d6df4": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 180,
+          "y": 660
+        },
+        "z": 1,
+        "embeds": [],
+        "ismemberof": [
+          "024115eb-9c64-4780-af37-aed342cf0743"
+        ]
+      },
+      "3bd286f4-8b67-4f34-b9ff-df8f3fd3dd05": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 210,
+          "y": 450
+        },
+        "z": 2,
+        "parent": "6a87c767-ea90-47ac-acd0-da9083b0c55c",
+        "embeds": [],
+        "isrelatedto": [
+          "024115eb-9c64-4780-af37-aed342cf0743"
+        ]
+      },
+      "aa0d5369-4fd6-4da4-bcc0-b59b0b49ce0b": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 300,
+          "y": 660
+        },
+        "z": 1,
+        "embeds": [],
+        "ismemberof": [
+          "3bd286f4-8b67-4f34-b9ff-df8f3fd3dd05"
+        ]
+      },
+      "6136e38d-43a4-439b-a544-aca39a75896c": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 420,
+          "y": 660
+        },
+        "z": 1,
+        "embeds": [],
+        "ismemberof": [
+          "3bd286f4-8b67-4f34-b9ff-df8f3fd3dd05"
+        ]
+      },
+      "7105185e-eb07-406b-8345-3c4914bbba2b": {
+        "size": {
+          "width": 240,
+          "height": 240
+        },
+        "position": {
+          "x": 90,
+          "y": 150
+        },
+        "z": 2,
+        "parent": "6a87c767-ea90-47ac-acd0-da9083b0c55c",
+        "embeds": [
+          "f15cdd49-e529-4494-bd95-8a931dd35bc3"
+        ]
+      },
+      "9494dfd2-41db-41ac-8aa3-63df686d5c46": {
+        "source": {
+          "id": "d290153b-0fb5-4b07-8bcb-4fead4712f72"
+        },
+        "target": {
+          "id": "6a87c767-ea90-47ac-acd0-da9083b0c55c"
+        }
+      },
+      "f15cdd49-e529-4494-bd95-8a931dd35bc3": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 120,
+          "y": 210
+        },
+        "z": 3,
+        "parent": "7105185e-eb07-406b-8345-3c4914bbba2b",
+        "embeds": [],
+        "references": [
+          "d290153b-0fb5-4b07-8bcb-4fead4712f72"
+        ],
+        "dependson": [
+          "9494dfd2-41db-41ac-8aa3-63df686d5c46"
+        ]
+      },
+      "147a1a25-7ebe-4bcc-80b6-5b6f3bfffeae": {
+        "size": {
+          "width": 150,
+          "height": 150
+        },
+        "position": {
+          "x": 390,
+          "y": 360
+        },
+        "z": 2,
+        "parent": "6a87c767-ea90-47ac-acd0-da9083b0c55c",
+        "embeds": []
+      },
+      "1c8f4a0e-1bcd-491f-abcd-2c174308ec03": {
+        "source": {
+          "id": "7105185e-eb07-406b-8345-3c4914bbba2b"
+        },
+        "target": {
+          "id": "147a1a25-7ebe-4bcc-80b6-5b6f3bfffeae"
+        }
+      },
+      "6769724d-3f7a-49f9-a120-55767e29a0aa": {
+        "size": {
+          "width": 150,
+          "height": 150
+        },
+        "position": {
+          "x": 390,
+          "y": 150
+        },
+        "z": 2,
+        "parent": "6a87c767-ea90-47ac-acd0-da9083b0c55c",
+        "embeds": []
+      },
+      "4e94bf8b-7728-4281-9d6c-9bbcf7f72d72": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 540,
+          "y": 660
+        },
+        "z": 1,
+        "embeds": [],
+        "isassociatedwith": [
+          "6136e38d-43a4-439b-a544-aca39a75896c"
+        ],
+        "isrelatedto": [
+          "6769724d-3f7a-49f9-a120-55767e29a0aa",
+          "147a1a25-7ebe-4bcc-80b6-5b6f3bfffeae",
+          "aa0d5369-4fd6-4da4-bcc0-b59b0b49ce0b"
+        ]
+      },
+      "5f1e3396-9f26-471e-b9ea-7496a27307d2": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 660,
+          "y": 660
+        },
+        "z": 1,
+        "embeds": [],
+        "isconnectedto": [
+          "6769724d-3f7a-49f9-a120-55767e29a0aa",
+          "147a1a25-7ebe-4bcc-80b6-5b6f3bfffeae"
+        ],
+        "ismemberof": [
+          "024115eb-9c64-4780-af37-aed342cf0743"
+        ]
+      },
+      "3e1988b5-4da6-4d65-b4ba-9bab6911bc5a": {
+        "source": {
+          "id": "7105185e-eb07-406b-8345-3c4914bbba2b"
+        },
+        "target": {
+          "id": "6769724d-3f7a-49f9-a120-55767e29a0aa"
+        }
+      },
+      "ffac7c98-a64c-491a-ac4a-d5bed7e943aa": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 720,
+          "y": 90
+        },
+        "z": 1,
+        "embeds": []
+      },
+      "b39154ff-ab7f-4684-9f67-cba0235aa999": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 720,
+          "y": 210
+        },
+        "z": 1,
+        "embeds": []
+      },
+      "ac3cd324-3526-483d-a007-094e0032f2b1": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 720,
+          "y": 330
+        },
+        "z": 1,
+        "embeds": [],
+        "references": [
+          "b39154ff-ab7f-4684-9f67-cba0235aa999",
+          "ffac7c98-a64c-491a-ac4a-d5bed7e943aa"
+        ],
+        "dependson": [
+          "4e94bf8b-7728-4281-9d6c-9bbcf7f72d72"
+        ],
+        "isrelatedto": [
+          "5f1e3396-9f26-471e-b9ea-7496a27307d2"
+        ]
+      },
+      "8eabed04-3c3b-4865-b72c-b442de659187": {
+        "size": {
+          "width": 140,
+          "height": 140
+        },
+        "position": {
+          "x": -280,
+          "y": 610
+        },
+        "z": 0
+      }
+    }
+  }
 }
