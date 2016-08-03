@@ -4,7 +4,9 @@ machine:
 dependencies:
   post:
     - pip install awscli
-
+test:
+  override:
+    - jq '.' template.json
 deployment:
   prod:
     branch: master
