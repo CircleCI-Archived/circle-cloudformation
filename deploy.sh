@@ -19,6 +19,8 @@ function waitOnCompletion() {
 aws cloudformation create-stack \
           --stack-name $STACK_NAME \
           --template-body file://template.json \
+          --parameters ParameterKey=KeyName,ParameterValue=vpc-reference \
+          
           
 waitOnCompletion
           
