@@ -5,8 +5,8 @@ dependencies:
   post:
     - pip install awscli
 test:
-  post:
-    - cp target/hello-*.jar $CIRCLE_ARTIFACTS
+  override:
+    - jq '.' template.json
 deployment:
   prod:
     branch: master
